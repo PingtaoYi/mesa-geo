@@ -94,6 +94,45 @@ class TestRasterLayer(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.raster_layer.apply_raster(np.empty((1, 100, 100)))
 
+    def test_create_band(self):
+        self.raster_layer.create_band("slope", default_value=1.0)
+        self.assertIn("slope", self.raster_layer.attributes)
+        np.testing.assert_array_equal(
+            self.raster_layer.get_raster("slope"),
+            np.ones((1, 3, 2))
+        )
+        self.assertEqual(self.raster_layer.cells[0][0].slope, 1.0)
+
+    def test_add_band(self):
+        array = np.array([[1, 2], [3, 4], [5, 6]], dtype=float)
+        self.raster_layer.add_band("slope", array)
+        self.assertIn("slope", self.raster_layer.attributes)
+        np.testing.assert_array_equal(
+            self.raster_layer.get_raster("slope")[0], array
+        )
+        self.assertEqual(self.raster_layer.cells[0][2].slope, array[0, 0])
+        self.assertEqual(self.raster_layer.cells[0][0].slope, array[2, 0])
+        with self.assertRaises(ValueError):
+            self.raster_layer.add_band("bad", np.zeros((10, 10)))
+
+    def test_remove_band(self):
+        self.raster_layer.create_band("slope")
+        self.raster_layer.remove_band("slope")
+        self.assertNotIn("slope", self.raster_layer.attributes)
+        with self.assertRaises(ValueError):
+            self.raster_layer.remove_band("slope")
+
+    def test_create_band_duplicate_raises(self):
+        self.raster_layer.create_band("slope")
+        with self.assertRaises(ValueError):
+            self.raster_layer.create_band("slope")
+
+    def test_add_band_duplicate_raises(self):
+        array = np.array([[1, 2], [3, 4], [5, 6]], dtype=float)
+        self.raster_layer.add_band("slope", array)
+        with self.assertRaises(ValueError):
+            self.raster_layer.add_band("slope", array)
+
     def test_apply_raster_single_band_attr_name_none(self):
         raster_data = np.array([[[7, 8], [9, 10], [11, 12]]])
         self.raster_layer.apply_raster(raster_data)
