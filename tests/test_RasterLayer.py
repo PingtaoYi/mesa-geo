@@ -98,8 +98,7 @@ class TestRasterLayer(unittest.TestCase):
         self.raster_layer.create_band("slope", default_value=1.0)
         self.assertIn("slope", self.raster_layer.attributes)
         np.testing.assert_array_equal(
-            self.raster_layer.get_raster("slope"),
-            np.ones((1, 3, 2))
+            self.raster_layer.get_raster("slope"), np.ones((1, 3, 2))
         )
         self.assertEqual(self.raster_layer.cells[0][0].slope, 1.0)
 
@@ -107,9 +106,7 @@ class TestRasterLayer(unittest.TestCase):
         array = np.array([[1, 2], [3, 4], [5, 6]], dtype=float)
         self.raster_layer.add_band("slope", array)
         self.assertIn("slope", self.raster_layer.attributes)
-        np.testing.assert_array_equal(
-            self.raster_layer.get_raster("slope")[0], array
-        )
+        np.testing.assert_array_equal(self.raster_layer.get_raster("slope")[0], array)
         self.assertEqual(self.raster_layer.cells[0][2].slope, array[0, 0])
         self.assertEqual(self.raster_layer.cells[0][0].slope, array[2, 0])
         with self.assertRaises(ValueError):
