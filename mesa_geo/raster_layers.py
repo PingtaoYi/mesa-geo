@@ -520,34 +520,64 @@ class RasterLayer(RasterBase):
             for col in range(self.height):
                 yield self.cells[row][col], row, col  # cell, x, y
 
-    def create_band(self, name: str, default_value: float = 0.0) -> None:
-        if name in self._data:
-            raise ValueError(f"Band '{name}' already exists. Use remove_band() first.")
-        self._data[name] = np.full((self.height, self.width), default_value)
-        self._attributes.add(name)
-        for grid_x in range(self.width):
-            for grid_y in range(self.height):
-                setattr(self.cells[grid_x][grid_y], name, default_value)
+    def set_band(
+        self, name: str, data: np.ndarray | float = 0.0
+    ) -> None:
+        """
+        Add a new band or overwrite an existing band.
 
-    def add_band(self, name: str, array: np.ndarray) -> None:
-        if array.shape != (self.height, self.width):
-            raise ValueError(
-                f"Array shape {array.shape} does not match raster shape "
-                f"({self.height}, {self.width})."
-            )
-        if name in self._data:
-            raise ValueError(f"Band '{name}' already exists. Use remove_band() first.")
-        self._data[name] = array.copy()
+        :param str name: Name of the band.
+        :param np.ndarray | float data: Either a 2D NumPy array of shape
+            (height, width) or a scalar fill value. Default is 0.0.
+        :raises ValueError: If data is an array with wrong shape.
+        """
+        if isinstance(data, np.ndarray):
+            if data.shape != (self.height, self.width):
+                raise ValueError(
+                    f"Array shape {data.shape} does not match raster shape "
+                    f"({self.height}, {self.width})."
+                )
+            self._data[name] = data.copy()
+        else:
+            self._data[name] = np.full((self.height, self.width), data)
         self._attributes.add(name)
         for grid_x in range(self.width):
             for grid_y in range(self.height):
                 setattr(
                     self.cells[grid_x][grid_y],
                     name,
-                    array[self.height - grid_y - 1, grid_x],
+                    self._data[name][self.height - grid_y - 1, grid_x],
                 )
 
+    def get_band(self, name: str) -> np.ndarray:
+        """
+        Return a single band as a 2D NumPy array.
+
+        :param str name: Name of the band.
+        :return: 2D NumPy array of shape (height, width).
+        :rtype: np.ndarray
+        :raises ValueError: If the band does not exist.
+        """
+        if name not in self._attributes:
+            raise ValueError(
+                f"Band '{name}' does not exist. "
+                f"Choose from {self._attributes}."
+            )
+        data = np.empty((self.height, self.width))
+        for grid_x in range(self.width):
+            for grid_y in range(self.height):
+                data[self.height - grid_y - 1, grid_x] = getattr(
+                    self.cells[grid_x][grid_y], name
+                )
+        return data
+
     def remove_band(self, name: str) -> None:
+        """
+        Remove a band from the raster layer.
+
+        :param str name: Name of the band to remove.
+        :raises ValueError: If the band does not exist.
+        """
         if name not in self._data:
             raise ValueError(f"Band '{name}' does not exist.")
         del self._data[name]
