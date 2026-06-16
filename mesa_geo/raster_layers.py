@@ -520,9 +520,7 @@ class RasterLayer(RasterBase):
             for col in range(self.height):
                 yield self.cells[row][col], row, col  # cell, x, y
 
-    def set_band(
-        self, name: str, data: np.ndarray | float = 0.0
-    ) -> None:
+    def set_band(self, name: str, data: np.ndarray | float = 0.0) -> None:
         """
         Add a new band or overwrite an existing band.
 
@@ -560,8 +558,7 @@ class RasterLayer(RasterBase):
         """
         if name not in self._attributes:
             raise ValueError(
-                f"Band '{name}' does not exist. "
-                f"Choose from {self._attributes}."
+                f"Band '{name}' does not exist. Choose from {self._attributes}."
             )
         data = np.empty((self.height, self.width))
         for grid_x in range(self.width):

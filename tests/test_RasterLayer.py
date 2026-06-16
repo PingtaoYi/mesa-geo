@@ -106,8 +106,7 @@ class TestRasterLayer(unittest.TestCase):
         self.raster_layer.set_band("slope", 1.0)
         self.raster_layer.set_band("slope", 2.0)
         np.testing.assert_array_equal(
-            self.raster_layer.get_raster("slope"),
-            np.full((1, 3, 2), 2.0)
+            self.raster_layer.get_raster("slope"), np.full((1, 3, 2), 2.0)
         )
 
     def test_get_band(self):
