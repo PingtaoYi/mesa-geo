@@ -579,6 +579,9 @@ class RasterLayer(RasterBase):
             raise ValueError(f"Band '{name}' does not exist.")
         del self._data[name]
         self._attributes.discard(name)
+        for column in self.cells:
+            for cell in column:
+                delattr(cell, name)
 
     def apply_raster(
         self, data: np.ndarray, attr_name: str | Sequence[str] | None = None

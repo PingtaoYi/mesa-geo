@@ -122,14 +122,26 @@ class TestRasterLayer(unittest.TestCase):
         result = self.raster_layer.get_band("slope")
         self.assertEqual(result[2, 0], 99.0)
 
+    def test_get_raster_reflects_direct_cell_mutation(self):
+        self.raster_layer.set_band("slope", 1.0)
+        self.raster_layer.cells[0][0].slope = 99.0
+
+        result = self.raster_layer.get_raster("slope")
+
+        self.assertEqual(result[0, 2, 0], 99.0)
+
     def test_get_band_missing_raises(self):
         with self.assertRaises(ValueError):
             self.raster_layer.get_band("nonexistent")
 
     def test_remove_band(self):
         self.raster_layer.set_band("slope")
+        self.assertTrue(hasattr(self.raster_layer.cells[0][0], "slope"))
+
         self.raster_layer.remove_band("slope")
+
         self.assertNotIn("slope", self.raster_layer.attributes)
+        self.assertFalse(hasattr(self.raster_layer.cells[0][0], "slope"))
         with self.assertRaises(ValueError):
             self.raster_layer.remove_band("slope")
 
