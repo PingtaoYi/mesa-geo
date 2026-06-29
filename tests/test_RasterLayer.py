@@ -73,17 +73,7 @@ class TestRasterLayer(unittest.TestCase):
     def test_apply_raster(self):
         raster_data = np.array([[[1, 2], [3, 4], [5, 6]]])
         self.raster_layer.apply_raster(raster_data, attr_name="val")
-        """
-        (x, y) coordinates:
-        (0, 2), (1, 2)
-        (0, 1), (1, 1)
-        (0, 0), (1, 0)
 
-        values:
-        [[[1, 2],
-          [3, 4],
-          [5, 6]]]
-        """
         self.assertEqual(self.raster_layer.cells[0][1].val, 3)
         self.assertEqual(self.raster_layer.attributes, {"val"})
 
@@ -93,6 +83,67 @@ class TestRasterLayer(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             self.raster_layer.apply_raster(np.empty((1, 100, 100)))
+
+    def test_set_band_with_scalar(self):
+        self.raster_layer.set_band("slope", 1.0)
+        self.assertIn("slope", self.raster_layer.attributes)
+        np.testing.assert_array_equal(
+            self.raster_layer.get_raster("slope"), np.ones((1, 3, 2))
+        )
+        self.assertEqual(self.raster_layer.cells[0][0].slope, 1.0)
+
+    def test_set_band_with_array(self):
+        array = np.array([[1, 2], [3, 4], [5, 6]], dtype=float)
+        self.raster_layer.set_band("slope", array)
+        self.assertIn("slope", self.raster_layer.attributes)
+        np.testing.assert_array_equal(self.raster_layer.get_raster("slope")[0], array)
+        self.assertEqual(self.raster_layer.cells[0][2].slope, array[0, 0])
+        self.assertEqual(self.raster_layer.cells[0][0].slope, array[2, 0])
+        with self.assertRaises(ValueError):
+            self.raster_layer.set_band("bad", np.zeros((10, 10)))
+
+    def test_set_band_overwrites_existing(self):
+        self.raster_layer.set_band("slope", 1.0)
+        self.raster_layer.set_band("slope", 2.0)
+        np.testing.assert_array_equal(
+            self.raster_layer.get_raster("slope"), np.full((1, 3, 2), 2.0)
+        )
+
+    def test_get_band(self):
+        array = np.array([[1, 2], [3, 4], [5, 6]], dtype=float)
+        self.raster_layer.set_band("slope", array)
+        result = self.raster_layer.get_band("slope")
+        self.assertEqual(result.shape, (3, 2))
+        np.testing.assert_array_equal(result, array)
+
+    def test_get_band_reflects_direct_cell_mutation(self):
+        self.raster_layer.set_band("slope", 1.0)
+        self.raster_layer.cells[0][0].slope = 99.0
+        result = self.raster_layer.get_band("slope")
+        self.assertEqual(result[2, 0], 99.0)
+
+    def test_get_raster_reflects_direct_cell_mutation(self):
+        self.raster_layer.set_band("slope", 1.0)
+        self.raster_layer.cells[0][0].slope = 99.0
+
+        result = self.raster_layer.get_raster("slope")
+
+        self.assertEqual(result[0, 2, 0], 99.0)
+
+    def test_get_band_missing_raises(self):
+        with self.assertRaises(ValueError):
+            self.raster_layer.get_band("nonexistent")
+
+    def test_remove_band(self):
+        self.raster_layer.set_band("slope")
+        self.assertTrue(hasattr(self.raster_layer.cells[0][0], "slope"))
+
+        self.raster_layer.remove_band("slope")
+
+        self.assertNotIn("slope", self.raster_layer.attributes)
+        self.assertFalse(hasattr(self.raster_layer.cells[0][0], "slope"))
+        with self.assertRaises(ValueError):
+            self.raster_layer.remove_band("slope")
 
     def test_apply_raster_single_band_attr_name_none(self):
         raster_data = np.array([[[7, 8], [9, 10], [11, 12]]])
@@ -189,17 +240,7 @@ class TestRasterLayer(unittest.TestCase):
     def test_get_raster(self):
         raster_data = np.array([[[1, 2], [3, 4], [5, 6]]])
         self.raster_layer.apply_raster(raster_data, attr_name="val")
-        """
-        (x, y) coordinates:
-        (0, 2), (1, 2)
-        (0, 1), (1, 1)
-        (0, 0), (1, 0)
 
-        values:
-        [[[1, 2],
-          [3, 4],
-          [5, 6]]]
-        """
         self.raster_layer.apply_raster(raster_data, attr_name="elevation")
         np.testing.assert_array_equal(
             self.raster_layer.get_raster(attr_name="elevation"), raster_data

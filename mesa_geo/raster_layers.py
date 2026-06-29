@@ -370,6 +370,7 @@ class RasterLayer(RasterBase):
     cells: list[list[Cell]]
     _neighborhood_cache: dict[Any, list[Coordinate]]
     _attributes: set[str]
+    _data: dict[str, np.ndarray]
 
     def __init__(
         self, width, height, crs, total_bounds, model, cell_cls: type[Cell] = Cell
@@ -377,9 +378,10 @@ class RasterLayer(RasterBase):
         super().__init__(width, height, crs, total_bounds)
         self.model = model
         self.cell_cls = cell_cls
-        self._initialize_cells()
         self._attributes = set()
+        self._data: dict[str, np.ndarray] = {}
         self._neighborhood_cache = {}
+        self._initialize_cells()
 
     def _update_transform(self) -> None:
         super()._update_transform()
@@ -518,6 +520,69 @@ class RasterLayer(RasterBase):
             for col in range(self.height):
                 yield self.cells[row][col], row, col  # cell, x, y
 
+    def set_band(self, name: str, data: np.ndarray | float = 0.0) -> None:
+        """
+        Add a new band or overwrite an existing band.
+
+        :param str name: Name of the band.
+        :param np.ndarray | float data: Either a 2D NumPy array of shape
+            (height, width) or a scalar fill value. Default is 0.0.
+        :raises ValueError: If data is an array with wrong shape.
+        """
+        if isinstance(data, np.ndarray):
+            if data.shape != (self.height, self.width):
+                raise ValueError(
+                    f"Array shape {data.shape} does not match raster shape "
+                    f"({self.height}, {self.width})."
+                )
+            self._data[name] = data.copy()
+        else:
+            self._data[name] = np.full((self.height, self.width), data)
+        self._attributes.add(name)
+        for grid_x in range(self.width):
+            for grid_y in range(self.height):
+                setattr(
+                    self.cells[grid_x][grid_y],
+                    name,
+                    self._data[name][self.height - grid_y - 1, grid_x],
+                )
+
+    def get_band(self, name: str) -> np.ndarray:
+        """
+        Return a single band as a 2D NumPy array.
+
+        :param str name: Name of the band.
+        :return: 2D NumPy array of shape (height, width).
+        :rtype: np.ndarray
+        :raises ValueError: If the band does not exist.
+        """
+        if name not in self._attributes:
+            raise ValueError(
+                f"Band '{name}' does not exist. Choose from {self._attributes}."
+            )
+        data = np.empty((self.height, self.width))
+        for grid_x in range(self.width):
+            for grid_y in range(self.height):
+                data[self.height - grid_y - 1, grid_x] = getattr(
+                    self.cells[grid_x][grid_y], name
+                )
+        return data
+
+    def remove_band(self, name: str) -> None:
+        """
+        Remove a band from the raster layer.
+
+        :param str name: Name of the band to remove.
+        :raises ValueError: If the band does not exist.
+        """
+        if name not in self._data:
+            raise ValueError(f"Band '{name}' does not exist.")
+        del self._data[name]
+        self._attributes.discard(name)
+        for column in self.cells:
+            for cell in column:
+                delattr(cell, name)
+
     def apply_raster(
         self, data: np.ndarray, attr_name: str | Sequence[str] | None = None
     ) -> None:
@@ -563,7 +628,7 @@ class RasterLayer(RasterBase):
                 names = [None] * num_bands
 
         def _default_attr_name() -> str:
-            base = f"attribute_{len(self.cell_cls.__dict__)}"
+            base = f"attribute_{len(self._attributes)}"
             if base not in self._attributes:
                 return base
             suffix = 1
@@ -576,6 +641,7 @@ class RasterLayer(RasterBase):
         for band_idx, name in enumerate(names):
             attr = _default_attr_name() if name is None else name
             self._attributes.add(attr)
+            self._data[attr] = data[band_idx].copy()
             for grid_x in range(self.width):
                 for grid_y in range(self.height):
                     setattr(
@@ -609,7 +675,7 @@ class RasterLayer(RasterBase):
                 )
         if attr_name is None:
             num_bands = len(self.attributes)
-            attr_names = self.attributes
+            attr_names = sorted(self.attributes)
         elif isinstance(attr_name, Sequence) and not isinstance(attr_name, str):
             num_bands = len(attr_name)
             attr_names = list(attr_name)
